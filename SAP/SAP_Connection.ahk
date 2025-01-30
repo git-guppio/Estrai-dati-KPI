@@ -91,4 +91,34 @@ class SAPConnection {
         }
         return ""
     }
+
+    static GetSessionID() {
+        if (this.IsConnected()) {
+            sessionID := this.session.Id
+            return SubStr(sessionID, InStr(sessionID, "[",,-1) + 1, 1)
+        }
+        return ""
+    }
+
+    static TerminateSession() {
+        try {
+            sessionID := this.GetSessionID()
+            if (sessionID != "") {
+                OutputDebug("SessionID: " . sessionID)
+                Terminator := "/i" . (Integer(sessionID) + 1)
+                this.session.findById("wnd[0]/tbar[0]/okcd").text := Terminator
+                this.session.findById("wnd[0]").sendVKey(0)
+                
+                ; Attendi e gestisci il popup di conferma
+                if WinWait("ahk_class #32770",, 5) {  ; Aspetta il popup
+                    this.session.findById("wnd[1]/usr/btnSPOP-OPTION1").press
+                    return true
+                }
+            }
+            return false
+        } catch Error as err {
+            MsgBox("Errore nella terminazione della sessione: " . err.Message . "`n")
+            return false
+        }
+    }
 }

@@ -1,14 +1,15 @@
 #Requires AutoHotkey v2.0
 
 class DirectoryManager {
-    static configFile := A_ScriptDir "\directories.ini"
-    static categories := ["AdM", "OdM", "SicuAmbi", "Ptw"]
-    static gui := ""
-    static editControls := Map()
+    configFile := G_CONSTANTS.DIRECTORY_CONFIG_FILE
+    categories := G_CONSTANTS.ESTRAZIONI_SAP
+    gui := ""
+    editControls := Map()
     
-    static __New() {
-        ; Crea la finestra principale
-        this.gui := Gui("+ToolWindow", "Configurazione Directory")
+    __New(mainApp) {
+        ; Salva il riferimento all'app principale
+        this.mainApp := mainApp        ; Crea la finestra principale
+        this.gui := Gui("+ToolWindow +Owner" . this.mainApp.mainGui.gui.Hwnd, "Configurazione Directory")
         this.gui.MarginX := 10
         this.gui.MarginY := 10
         
@@ -25,7 +26,7 @@ class DirectoryManager {
         this.gui.Show()
     }
     
-    static LoadConfig() {
+    LoadConfig() {
         ; Se il file di configurazione non esiste, lo crea con valori di default
         if !FileExist(this.configFile) {
             for category in this.categories {
@@ -34,7 +35,7 @@ class DirectoryManager {
         }
     }
     
-    static CreateControls() {
+    CreateControls() {
         ; Aggiunge una breve descrizione
         this.gui.Add("Text","xm ym", "Seleziona le directory per il salvataggio dei dati:")
         ;this.gui.Add("Text", "y+5", "")  ; Spaziatura
@@ -52,12 +53,13 @@ class DirectoryManager {
             this.editControls[category] := edit
             
             ; Pulsante Browse
-            btn := this.gui.Add("Button", "x+5 yp-1 w60", "Browse")
+            btn := this.gui.Add("Button", "x+5 yp-1 w" MainGUI.BUTTON_DIM . " h" . MainGUI.BUTTON_DIM, "")
+            ButtonIconManager.SetIcon(btn, 'shell32.dll',267, 's' . 32)
             btn.OnEvent("Click", this.BrowseFolder.Bind(this, category))
         }
     }
     
-    static CreateButtons() {
+    CreateButtons() {
         ; Aggiunge una linea di separazione
         this.gui.Add("Text", "xm y+20 w450 h2 +0x10")
         
@@ -66,7 +68,7 @@ class DirectoryManager {
         saveBtn.OnEvent("Click", this.SaveConfig.Bind(this))
         
         cancelBtn := this.gui.Add("Button", "x+10 yp w100", "Annulla")
-        cancelBtn.OnEvent("Click", (*) => this.gui.Destroy())
+        cancelBtn.OnEvent("Click", this.Annulla.Bind(this))
         
         ; Pulsante per aprire il file di configurazione
         openConfigBtn := this.gui.Add("Button", "x+10 yp w140", "Apri File Config")
@@ -75,9 +77,25 @@ class DirectoryManager {
         ; Pulsante per resettare ai valori di default
         resetBtn := this.gui.Add("Button", "x+10 yp w100", "Reset Default")
         resetBtn.OnEvent("Click", this.ResetToDefault.Bind(this))
+
+        ; evento per la chiusura della finestra
+        this.gui.OnEvent("Close", (*) => this.HandleCloseButtonClick())
+        this.gui.OnEvent("Escape", (*) => this.HandleCloseButtonClick())
     }
     
-    static BrowseFolder(category, *) {
+    HandleCloseButtonClick(*) {
+        this.mainApp.EnableMainGui()
+        this.gui.Destroy()
+        this.mainApp.DirectoryManagerGui := ""  ; Rimuovi il riferimento
+    }
+
+
+    Annulla(*) {
+        this.mainApp.EnableMainGui()
+        this.gui.Destroy()        
+    }
+
+    BrowseFolder(category, *) {
         ; Ottieni il percorso corrente
         currentPath := this.editControls[category].Value
         
@@ -88,7 +106,7 @@ class DirectoryManager {
         }
     }
     
-    static SaveConfig(*) {
+    SaveConfig(*) {
         try {
             ; Salva ogni percorso nel file INI
             for category, edit in this.editControls {
@@ -111,13 +129,14 @@ class DirectoryManager {
             }
             
             MsgBox("Configurazione salvata con successo!", "Successo", "Iconi")
+            this.mainApp.EnableMainGui()
             this.gui.Destroy()
         } catch as err {
             MsgBox("Errore durante il salvataggio: " err.Message, "Errore", "Icon!")
         }
     }
     
-    static ResetToDefault(*) {
+    ResetToDefault(*) {
         if (MsgBox("Vuoi davvero ripristinare i valori predefiniti?",
                    "Conferma Reset",
                    "YesNo Icon?") = "Yes") {
@@ -130,12 +149,17 @@ class DirectoryManager {
     }
     
     ; Metodo pubblico per ottenere il percorso di una categoria
-    static GetPath(category) {
+    GetPath(category) {
         return IniRead(this.configFile, "Directories", category, A_ScriptDir "\" category)
+    }
+
+    ; Metodo pubblico per ottenere il percorso di una categoria
+    static GetCategoryPath(category) {
+        return IniRead(G_CONSTANTS.DIRECTORY_CONFIG_FILE, "Directories", category, A_ScriptDir "\" category)
     }
     
     ; Metodo pubblico per verificare se tutte le directory esistono
-    static VerifyDirectories() {
+    VerifyDirectories() {
         missingDirs := []
         for category in this.categories {
             path := this.GetPath(category)
@@ -156,5 +180,5 @@ class DirectoryManager {
 ; Per verificare che tutte le directory esistano:
 ; missingDirs := DirectoryManager.VerifyDirectories()
 ; if missingDirs.Length {
-;     MsgBox("Directory mancanti: " ArrayUtils.Join(missingDirs))
+;     MsgBox("Directory mancanti: " ArrayTools.Join(missingDirs))
 ; }

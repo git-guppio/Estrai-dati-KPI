@@ -6,21 +6,44 @@
 #SingleInstance Force
 
 #Include GlobalConstants.ahk
-#Include Utils\EventManager.ahk
-#Include Utils\ProcessManager.ahk
-#Include Utils\DebugManager.ahk
-#Include FLChecker.ahk
-#Include GUI\MakeGUI.ahk
+#Include ButtonIconManager.ahk
+#Include GestioneDirectory.ahk
+#Include GestioneImpianti.ahk
+#Include Utils\ArrayTools.ahk
 #Include SAP\SAP_Connection.ahk
-#Include SAP\SAP_TableChecker.ahk
-#Include SAP\SAP_UpLoadTable.ahk
-#Include SAP\SAP_ControlAsset.ahk
+#Include SAP\SAP_Estrai_Manager.ahk
+#Include MainGUI.ahk
+
+; Aggiungi hotkey per ESC
+Hotkey "Escape", StopExecution
+
+; Flag globale per il controllo dell'esecuzione
+global isRunning := false
+
+StopExecution(*) {
+    global isRunning
+       if isRunning {
+           result := MsgBox("Vuoi interrompere l'esecuzione?", "Conferma", 4)
+           if (result = "Yes") {
+               isRunning := false
+                While ProcessExist("saplogon.exe") {
+                    ProcessClose("saplogon.exe")
+                }
+               ;SAPConnection.TerminateSession()
+               MainGUI.SetStatusBarText("Esecuzione interrotta dall'utente")
+           }
+       }
+       else {
+            result := MsgBox("Vuoi chiudere l'applicazione?", "Conferma", 4)
+            if (result = "Yes") {
+                ExitApp
+            }
+        }
+    }
 
 Main()
 
 Main() {
-    ; Avvio dell'applicazione
-    EventManager.Publish("ProcessStarted", {processId: "MainGUI", status: "Started", details: "", result: {}})
-    app := MainApp()
-    app.ShowMain()
+    ; Avvia l'applicazione
+    app := GUI_Manager()
 }
